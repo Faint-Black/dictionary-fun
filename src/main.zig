@@ -45,7 +45,7 @@ pub fn main() void {
     std.debug.print("Cores: {}\n", .{cores});
     std.debug.print("Version: {s}\n", .{release_version_string});
     std.debug.print("Filename: \"{s}\"\n", .{filename});
-    std.debug.print("Pre-allocation: {}\n", .{preallocation});
+    std.debug.print("Pre-allocation: 0x{X} bytes\n", .{preallocation});
 
     parse.parseFile(filename, allocator) catch {
         std.debug.print("Failed to parse file!\n", .{});

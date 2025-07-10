@@ -1,6 +1,5 @@
 const std = @import("std");
 const stdout = std.io.getStdOut().writer();
-const stderr = std.io.getStdErr().writer();
 
 /// separate monolithic arrays, for better caching
 pub const EntryList = struct {
@@ -27,8 +26,8 @@ pub const EntryList = struct {
 
     pub fn printEntries(self: EntryList) void {
         for (self.string_list, self.hash_list) |string, hash| {
-            stderr.print("Hash = 0x{X:0>16}, ", .{hash}) catch unreachable;
-            stderr.print("String = \"{s}\"\n", .{string}) catch unreachable;
+            stdout.print("Hash = 0x{X:0>16}, ", .{hash}) catch unreachable;
+            stdout.print("String = \"{s}\"\n", .{string}) catch unreachable;
         }
     }
 
@@ -40,14 +39,13 @@ pub const EntryList = struct {
         var hash_vector = std.ArrayList(u64).init(self.allocator);
         defer hash_vector.deinit();
 
-        var i: usize = 0;
-        var c: u8 = 0;
-        while (i < 100) : (i += 1) {
-            c = contents[i];
+        for (contents) |c| {
             if (isWordSeparator(c)) {
-                const built_string = try character_vector.toOwnedSlice();
-                try string_vector.append(built_string);
-                try hash_vector.append(hashFromBytes(built_string));
+                if (character_vector.items.len != 0) {
+                    const built_string = try character_vector.toOwnedSlice();
+                    try string_vector.append(built_string);
+                    try hash_vector.append(hashFromBytes(built_string));
+                }
                 continue;
             }
             try character_vector.append(c);
@@ -84,5 +82,5 @@ pub fn parseFile(filename: []const u8, allocator: std.mem.Allocator) !void {
 }
 
 fn isWordSeparator(character: u8) bool {
-    return (character == '\n' or character == ' ');
+    return (character == '\n' or character == ' ' or character == '\r');
 }
