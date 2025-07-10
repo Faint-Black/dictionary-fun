@@ -1,86 +1,95 @@
 const std = @import("std");
 const stdout = std.io.getStdOut().writer();
 
-/// separate monolithic arrays, for better caching
+pub const Entry = struct {
+    string: []u8,
+    hash: u64,
+
+    pub fn deinit(self: Entry, allocator: std.mem.Allocator) void {
+        allocator.free(self.string);
+    }
+
+    pub fn print(self: Entry) void {
+        stdout.print("[Hash = 0x{X:0>16}, ", .{self.hash}) catch unreachable;
+        stdout.print("String = \"{s}\"]\n", .{self.string}) catch unreachable;
+    }
+};
+
 pub const EntryList = struct {
     allocator: std.mem.Allocator,
-    string_list: [][]u8,
-    hash_list: []u64,
+    entries: []Entry,
 
-    pub fn init(allocator: std.mem.Allocator) EntryList {
-        return EntryList{
-            .allocator = allocator,
-            .string_list = undefined,
-            .hash_list = undefined,
-        };
+    const filesize_limit = 1073741824;
+
+    pub fn init(allocator: std.mem.Allocator, filename: []const u8) !EntryList {
+        const file = try std.fs.cwd().openFile(filename, .{});
+        defer file.close();
+        const file_contents = try file.reader().readAllAlloc(allocator, filesize_limit);
+        defer allocator.free(file_contents);
+        return parseDictionary(allocator, file_contents);
     }
 
-    /// each backend string is allocated, this frees them
+    /// free each allocated string
     pub fn deinit(self: EntryList) void {
-        for (self.string_list) |string| {
-            self.allocator.free(string);
+        for (self.entries) |entry| {
+            entry.deinit(self.allocator);
         }
-        self.allocator.free(self.string_list);
-        self.allocator.free(self.hash_list);
     }
 
+    /// 64-bit FNV-1a algorithm
+    pub fn hashFromBytes(bytes: []u8) u64 {
+        const offset_basis: u64 = 14695981039346656037;
+        const large_prime: u64 = 1099511628211;
+        var hash: u64 = offset_basis;
+        for (bytes) |byte| {
+            hash ^= byte;
+            hash *%= large_prime;
+        }
+        return hash;
+    }
+
+    /// parsing helper
+    fn isWordSeparator(character: u8) bool {
+        return (character == '\n' or character == ' ' or character == '\r');
+    }
+
+    /// print one entry
+    pub fn printEntry(self: EntryList, index: usize) void {
+        self.entries[index].print();
+    }
+
+    /// print all entries
     pub fn printEntries(self: EntryList) void {
-        for (self.string_list, self.hash_list) |string, hash| {
-            stdout.print("Hash = 0x{X:0>16}, ", .{hash}) catch unreachable;
-            stdout.print("String = \"{s}\"\n", .{string}) catch unreachable;
+        for (self.entries) |entry| {
+            entry.print();
         }
     }
 
-    pub fn parse(self: *EntryList, contents: []const u8) !void {
-        var character_vector = std.ArrayList(u8).init(self.allocator);
+    /// [file contents] => [entries]
+    fn parseDictionary(allocator: std.mem.Allocator, contents: []const u8) !EntryList {
+        var character_vector = std.ArrayList(u8).init(allocator);
         defer character_vector.deinit();
-        var string_vector = std.ArrayList([]u8).init(self.allocator);
-        defer string_vector.deinit();
-        var hash_vector = std.ArrayList(u64).init(self.allocator);
-        defer hash_vector.deinit();
+        var entry_vector = std.ArrayList(Entry).init(allocator);
+        defer entry_vector.deinit();
 
         for (contents) |c| {
             if (isWordSeparator(c)) {
                 if (character_vector.items.len != 0) {
                     const built_string = try character_vector.toOwnedSlice();
-                    try string_vector.append(built_string);
-                    try hash_vector.append(hashFromBytes(built_string));
+                    const new_entry = Entry{
+                        .string = built_string,
+                        .hash = hashFromBytes(built_string),
+                    };
+                    try entry_vector.append(new_entry);
                 }
                 continue;
             }
             try character_vector.append(c);
         }
 
-        self.string_list = try string_vector.toOwnedSlice();
-        self.hash_list = try hash_vector.toOwnedSlice();
+        return EntryList{
+            .allocator = allocator,
+            .entries = try entry_vector.toOwnedSlice(),
+        };
     }
 };
-
-/// 64-bit FNV-1a algorithm
-pub fn hashFromBytes(bytes: []u8) u64 {
-    const offset_basis: u64 = 14695981039346656037;
-    const large_prime: u64 = 1099511628211;
-    var hash: u64 = offset_basis;
-    for (bytes) |byte| {
-        hash ^= byte;
-        hash *%= large_prime;
-    }
-    return hash;
-}
-
-/// [file] => [entries]
-pub fn parseFile(filename: []const u8, allocator: std.mem.Allocator) !void {
-    const gigabyte = 1073741824;
-    const file = try std.fs.cwd().openFile(filename, .{});
-    const file_contents = try file.reader().readAllAlloc(allocator, gigabyte);
-    defer allocator.free(file_contents);
-
-    var entry_list = EntryList.init(allocator);
-    defer entry_list.deinit();
-    try entry_list.parse(file_contents);
-    entry_list.printEntries();
-}
-
-fn isWordSeparator(character: u8) bool {
-    return (character == '\n' or character == ' ' or character == '\r');
-}

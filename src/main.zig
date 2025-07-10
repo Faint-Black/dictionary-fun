@@ -2,7 +2,8 @@ const std = @import("std");
 const builtin = @import("builtin");
 const parse = @import("parse.zig");
 
-const kilobyte = 1024;
+const byte = 1;
+const kilobyte = 1024 * byte;
 const megabyte = 1024 * kilobyte;
 const gigabyte = 1024 * megabyte;
 
@@ -14,6 +15,12 @@ const release_version_string = switch (builtin.mode) {
 };
 
 pub fn main() void {
+    // begin benchmark
+    var timer = std.time.Timer.start() catch {
+        std.debug.print("Failed to start timer!\n", .{});
+        return;
+    };
+
     // set up allocator
     // fixed buffer allocator only allocates/deallocates once
     // fastest solution for this kind of problem
@@ -32,11 +39,6 @@ pub fn main() void {
         return;
     };
 
-    var timer = std.time.Timer.start() catch {
-        std.debug.print("Failed to start timer!\n", .{});
-        return;
-    };
-
     const cores = std.Thread.getCpuCount() catch {
         std.debug.print("Failed to get CPU cores!\n", .{});
         return;
@@ -47,11 +49,13 @@ pub fn main() void {
     std.debug.print("Filename: \"{s}\"\n", .{filename});
     std.debug.print("Pre-allocation: 0x{X} bytes\n", .{preallocation});
 
-    parse.parseFile(filename, allocator) catch {
+    const entries = parse.EntryList.init(allocator, filename) catch {
         std.debug.print("Failed to parse file!\n", .{});
         return;
     };
+    entries.printEntry(20);
 
+    // end benchmark
     const nanoseconds = timer.read();
     const formatted_time = std.fmt.fmtDuration(nanoseconds);
     std.debug.print("Done in {s}\n", .{formatted_time});
