@@ -1,6 +1,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const parse = @import("parse.zig");
+const Benchmark = @import("benchmark.zig");
+const algo = @import("algorithms.zig");
 
 const byte = 1;
 const kilobyte = 1024 * byte;
@@ -16,10 +18,8 @@ const release_version_string = switch (builtin.mode) {
 
 pub fn main() void {
     // begin benchmark
-    var timer = std.time.Timer.start() catch {
-        std.debug.print("Failed to start timer!\n", .{});
-        return;
-    };
+    var timer = Benchmark.begin("MAIN");
+    defer timer.end();
 
     // set up allocator
     // fixed buffer allocator only allocates/deallocates once
@@ -53,10 +53,9 @@ pub fn main() void {
     };
     defer entries.deinit();
 
-    // end benchmark
-    const nanoseconds = timer.read();
-    const formatted_time = std.fmt.fmtDuration(nanoseconds);
-    std.debug.print("Done in {s}\n", .{formatted_time});
+    const binary_search_query = algo.search(entries, "aardvark");
+    if (binary_search_query) |query|
+        entries.printEntry(query);
 }
 
 /// get provided filename for the dictionary

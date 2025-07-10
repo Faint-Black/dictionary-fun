@@ -56,7 +56,7 @@ pub const EntryList = struct {
     }
 
     /// 64-bit FNV-1a algorithm
-    pub fn hashFromBytes(bytes: []u8) u64 {
+    pub fn hashFromBytes(bytes: []const u8) u64 {
         const offset_basis: u64 = 14695981039346656037;
         const large_prime: u64 = 1099511628211;
         var hash: u64 = offset_basis;
