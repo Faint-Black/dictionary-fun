@@ -13,6 +13,20 @@ pub const Entry = struct {
         stdout.print("[Hash = 0x{X:0>16}, ", .{self.hash}) catch unreachable;
         stdout.print("String = \"{s}\"]\n", .{self.string}) catch unreachable;
     }
+
+    pub fn predAlphabetical(context: void, a: Entry, b: Entry) bool {
+        _ = context;
+        return switch (std.mem.order(u8, a.string, b.string)) {
+            .lt => true,
+            .eq => false,
+            .gt => false,
+        };
+    }
+
+    pub fn predHash(context: void, a: Entry, b: Entry) bool {
+        _ = context;
+        return (a.hash <= b.hash);
+    }
 };
 
 pub const EntryList = struct {
@@ -26,7 +40,12 @@ pub const EntryList = struct {
         defer file.close();
         const file_contents = try file.reader().readAllAlloc(allocator, filesize_limit);
         defer allocator.free(file_contents);
-        return parseDictionary(allocator, file_contents);
+
+        var result: EntryList = undefined;
+        result = try parseDictionary(allocator, file_contents);
+        result.ascendingHash();
+        if (result.hasHashCollision()) return error.HashCollisionOccured;
+        return result;
     }
 
     /// free each allocated string
@@ -91,5 +110,20 @@ pub const EntryList = struct {
             .allocator = allocator,
             .entries = try entry_vector.toOwnedSlice(),
         };
+    }
+
+    /// ascending sort of hashes
+    fn ascendingHash(self: EntryList) void {
+        std.mem.sortUnstable(Entry, self.entries, {}, Entry.predHash);
+    }
+
+    /// returns true if a hash collision on the sorted list exists
+    fn hasHashCollision(self: EntryList) bool {
+        for (1..self.entries.len) |i| {
+            const l = self.entries[i - 1].hash;
+            const r = self.entries[i].hash;
+            if (l == r) return true;
+        }
+        return false;
     }
 };

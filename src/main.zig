@@ -38,22 +38,20 @@ pub fn main() void {
         std.debug.print("Failed to parse command-line arguments!\n", .{});
         return;
     };
-
     const cores = std.Thread.getCpuCount() catch {
         std.debug.print("Failed to get CPU cores!\n", .{});
         return;
     };
-
     std.debug.print("Cores: {}\n", .{cores});
     std.debug.print("Version: {s}\n", .{release_version_string});
     std.debug.print("Filename: \"{s}\"\n", .{filename});
     std.debug.print("Pre-allocation: 0x{X} bytes\n", .{preallocation});
 
-    const entries = parse.EntryList.init(allocator, filename) catch {
-        std.debug.print("Failed to parse file!\n", .{});
+    const entries = parse.EntryList.init(allocator, filename) catch |err| {
+        std.debug.print("Failed to parse file!: \"{s}\"\n", .{@errorName(err)});
         return;
     };
-    entries.printEntry(20);
+    defer entries.deinit();
 
     // end benchmark
     const nanoseconds = timer.read();
@@ -65,9 +63,7 @@ pub fn main() void {
 fn getArg(allocator: std.mem.Allocator) ![]const u8 {
     var argv = try std.process.ArgIterator.initWithAllocator(allocator);
     defer argv.deinit();
-
     if (argv.skip() == false) return error.HowDidThisHappen;
     const arg = argv.next() orelse "none";
-
     return arg;
 }
