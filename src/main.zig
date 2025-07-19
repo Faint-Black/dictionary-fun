@@ -48,14 +48,16 @@ pub fn main() void {
     std.debug.print("Pre-allocation: 0x{X} bytes\n", .{preallocation});
 
     const entries = parse.EntryList.init(allocator, filename) catch |err| {
-        std.debug.print("Failed to parse file!: \"{s}\"\n", .{@errorName(err)});
+        std.debug.print("Failed to parse file: \"{s}\"\n", .{@errorName(err)});
         return;
     };
     defer entries.deinit();
 
     const binary_search_query = algo.search(entries, "aardvark");
-    if (binary_search_query) |query|
+    if (binary_search_query) |query| {
+        std.debug.print("searched for word \"aardvark\": ", .{});
         entries.printEntry(query);
+    }
 }
 
 /// get provided filename for the dictionary
@@ -63,6 +65,6 @@ fn getArg(allocator: std.mem.Allocator) ![]const u8 {
     var argv = try std.process.ArgIterator.initWithAllocator(allocator);
     defer argv.deinit();
     if (argv.skip() == false) return error.HowDidThisHappen;
-    const arg = argv.next() orelse "none";
+    const arg = argv.next() orelse "undefined";
     return arg;
 }

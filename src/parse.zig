@@ -1,4 +1,5 @@
 const std = @import("std");
+const Benchmark = @import("benchmark.zig");
 const stdout = std.io.getStdOut().writer();
 
 pub const Entry = struct {
@@ -114,11 +115,15 @@ pub const EntryList = struct {
 
     /// ascending sort of hashes
     fn ascendingHash(self: EntryList) void {
+        var timer = Benchmark.begin("SORT HASHES");
+        defer timer.end();
         std.mem.sortUnstable(Entry, self.entries, {}, Entry.predHash);
     }
 
     /// returns true if a hash collision on the sorted list exists
     fn hasHashCollision(self: EntryList) bool {
+        var timer = Benchmark.begin("CHECK HASH COLLISIONS");
+        defer timer.end();
         for (1..self.entries.len) |i| {
             const l = self.entries[i - 1].hash;
             const r = self.entries[i].hash;
